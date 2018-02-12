@@ -1,0 +1,17 @@
+{
+  "name": "determinator",
+  "version": "0.1.0",
+  "description": "A distributed and deterministic experimentation and feature flag framework from Deliveroo.",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest"
+  },
+  "author": "jp@deliveroo.co.uk",
+  "license": "MIT",
+  "devDependencies": {
+    "jest": "^22.2.1"
+  },
+  "dependencies": {
+    "md5": "^2.2.1"
+  }
+}
