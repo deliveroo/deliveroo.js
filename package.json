@@ -1,6 +1,6 @@
 {
   "name": "determinator",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A distributed and deterministic experimentation and feature flag framework from Deliveroo.",
   "main": "index.js",
   "scripts": {
