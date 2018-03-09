@@ -1,7 +1,3 @@
-Determinator = require('./determinator.js');
-FileRetrieval = require('./file_retrieval.js');
+const Determinator = require('./determinator');
 
-module.exports = {
-  Determinator,
-  FileRetrieval,
-};
+module.exports = Determinator;

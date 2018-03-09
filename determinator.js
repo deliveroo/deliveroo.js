@@ -4,71 +4,70 @@ class Determinator {
 
   constructor(retrieval, logger) {
     this.retrieval = retrieval;
-    this.log = logger ? logger.log : () => {};
+    this.log = logger || (() => {});
   }
 
   determinate(featureId, id, guid, properties = {}) {
     const feature = this.retrieval.retrieve(featureId);
-    this.log(`🤖 Determinating feature '${feature.name}' for actor (id: ${id}, guid: ${guid}, properties: ${JSON.stringify(properties)}).`)
+    this.log('start', `Determinating '${feature.name}'`, 'The given ID, GUID and properties will be used to determine which target groups this actor is in, and will deterministically return an outcome for the visibility of this feature for them.')
+
+    const actorIdentifier = this._actorIdentifier(feature, id, guid);
+    if (actorIdentifier === undefined) return false;
 
     if (feature === undefined) return false;
     if (!feature.active) {
-      this.log('⛔️ Feature is inactive, every actor is excluded.');
+      this.log('fail', 'Feature is inactive', 'Every actor is excluded');
       return false;
     }
 
     const rollout = this._chooseRollout(feature, properties);
     if (rollout == 0) {
-      this.log('⛔️ No target groups with positive rollouts match. This actor is excluded.');
+      this.log('fail', '0% for matching target groups', 'No matching target groups have a rollout larger than 0%. This actor is excluded.');
       return false;
     }
 
     const percentage = Math.round(rollout / 6.5536) / 100;
-    this.log(`ℹ️ Using the largest rollout of ${percentage}%.`)
-
-    const actorIdentifier = this._actorIdentifier(feature, id, guid);
-    if (actorIdentifier === undefined) {
-      this.log('⛔️ No suitable identifier available. This actor is excluded.');
-      return false;
-    }
+    this.log('info', `${percentage}% chance of being included`, `The largest matching rollout percentage is ${percentage}%, giving this actor a ${percentage}% chance of being included.`);
 
     const {rolloutIndicator, variantIndicator} = this._indicators(feature, actorIdentifier);
     if (rolloutIndicator >= rollout) {
-      this.log(`⛔️ This actor is randomly allocated outside the ${percentage}% and is excluded.`);
+      this.log('fail', `Determinated to be outside the ${percentage}%`, 'This actor is excluded');
       return false;
     } else {
-      this.log(`👍 This actor is randomly allocated inside the ${percentage}%.`);
+      this.log('continue', `Determinated to be inside the ${percentage}%`, 'This actor is included');
     }
 
     if (!feature.variants || Object.keys(feature.variants).length === 0) {
-      this.log('✅ The feature flag is on for this actor.');
+      this.log('success', 'Feature flag on for this actor', 'Determinator will return true for this actor and this feature in any system that is correctly set up.');
       return true;
     }
 
     const variant = this._chooseVariant(feature, variantIndicator);
-    this.log(`✅ The actor has been allocated to the '${variant}' variant.`);
+    this.log('success', `In the '${variant}' variant`, `Determinator will return '${variant}' for this actor and this feature in any system that is correctly set up.`);
     return variant;
   }
 
   _chooseRollout(feature, properties) {
     return feature.target_groups.reduce((result, tg) => {
-      this.log(`🎯 Checking whether the actor is in the '${tg.name}' target group.`)
-      if (tg.rollout > 65536 || tg.rollout <= 0) return result;
+      this.log('target_group', `Checking '${tg.name}' target group`, 'An actor must match at least one non-zero target group in order to be included.');
+      if (tg.rollout > 65536 || tg.rollout <= 0) {
+        this.log('pass', 'Target group has 0% rollout', 'No actor can be included.');
+        return result;
+      }
 
       const match = Object.keys(tg.constraints).every((constraint) => {
+        const constraintValues = this._arrayOfStringify(tg.constraints[constraint]);
+        const propertyValues = this._arrayOfStringify(properties[constraint]);
+
         if (!properties.hasOwnProperty(constraint)) {
-          this.log(`  👎 This actor does not have a required '${constraint}' property.`)
+          this.log('pass', `Missing required '${constraint}' property`, `This target group requires the '${constraint}' property to be one of the following values to match: ${constraintValues.join(', ')}`);
           return false;
         }
 
-        const constraintValues = this._arrayOfStringify(tg.constraints[constraint]);
-        const propertyValues = this._arrayOfStringify(properties[constraint]);
         const includes = constraintValues.some((value) => propertyValues.includes(value));
 
-        if (includes) {
-          this.log(`  ℹ️ This actor's '${constraint}' property includes one of the required values (${constraintValues.join(', ')}).`)
-        } else {
-          this.log(`  👎 This actor's '${constraint}' property does not include any of the required values: (${constraintValues.join(', ')}).`)
+        if (!includes) {
+          this.log('pass', `'${constraint}' property is unacceptable`, `Does not include any of the required values: ${constraintValues.join(', ')}`);
         }
 
         return includes
@@ -76,9 +75,7 @@ class Determinator {
 
       if (match) {
         const percentage = Math.round(tg.rollout / 6.5536) / 100;
-        this.log(`  👍 This actor is in the '${tg.name}' target group (rollout: ${percentage}%).`)
-      } else {
-        this.log(`  👎 This actor is not in the '${tg.name}' target group.`)
+        this.log('continue', `Matches the '${tg.name}' target group`, `Matching this target group allows this actor a ${percentage}% chance of being included.`);
       }
 
       return (match && tg.rollout > result) ? tg.rollout : result;
@@ -89,7 +86,7 @@ class Determinator {
     switch(feature.bucket_type) {
     case 'id':
       if (!this._emptyString(id)) return id;
-      this.log('ℹ️ No ID given. This actor will be excluded.');
+      this.log('fail', 'No ID given, cannot determinate', 'For ID bucketed features an ID must be given to have the possibility of being included.');
       return undefined;
 
     case 'guid':
@@ -105,6 +102,7 @@ class Determinator {
       return 'all';
 
     default:
+      this.log('fail', 'Unknown bucket type', `The bucket type '${feature.bucket_type}' is not understood by Determinator. All actors will be excluded.`);
       return undefined;
     }
   }
