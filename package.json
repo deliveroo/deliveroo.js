@@ -1,5 +1,5 @@
 {
-  "name": "determinator",
+  "name": "@deliveroo/determinator",
   "version": "0.2.0",
   "description": "A distributed and deterministic experimentation and feature flag framework from Deliveroo.",
   "main": "index.js",
