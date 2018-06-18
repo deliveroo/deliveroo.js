@@ -99,7 +99,8 @@ class Determinator {
       throw 'An ID or GUID must always be given for Fallback bucketed features';
 
     case 'single':
-      return 'all';
+      this.log('random', 'Randomised rollout', 'Unbucketed features will be on or off at random at the rollout percentage of time.');
+      return Math.random().toString();
 
     default:
       this.log('fail', 'Unknown bucket type', `The bucket type '${feature.bucket_type}' is not understood by Determinator. All actors will be excluded.`);
